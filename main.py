@@ -11,6 +11,7 @@ import logging
 import requests
 from bs4 import BeautifulSoup
 from flask import Flask, jsonify, render_template_string
+from image_gen import make_status_image, make_top_image, make_site_stats_image
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
