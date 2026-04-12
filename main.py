@@ -8,7 +8,6 @@ import asyncio
 import threading
 import io
 import re
-import time
 import logging
 import requests
 from collections import defaultdict
@@ -31,9 +30,7 @@ CS_HOST = "198.163.207.220"
 CS_PORT = 27015
 SITE_URL = "https://arenacs.uz/stats"
 
-# Flood nazorat: 5 daqiqada nechta marta ruxsat
-FLOOD_WINDOW  = 5 * 60   # 5 daqiqa (soniyada)
-FLOOD_MAX     = 2        # maksimal so'rovlar soni
+
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -41,22 +38,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ──────────────────────────────────────────────
-# FLOOD NAZORAT
-# user_id → [(chat_id, message_id, timestamp), ...]
-# ──────────────────────────────────────────────
-user_requests: dict = defaultdict(list)   # {user_id: [timestamp, ...]}
-user_messages: dict = defaultdict(list)   # {user_id: [(chat_id, msg_id), ...]}
+# user_id → [(chat_id, message_id), ...]
+user_messages: dict = defaultdict(list)
 
 def check_flood(user_id: int) -> bool:
-    """True = ruxsat, False = flood"""
-    now = time.time()
-    # Eski vaqtlarni tozalaymiz
-    user_requests[user_id] = [t for t in user_requests[user_id] if now - t < FLOOD_WINDOW]
-    if len(user_requests[user_id]) >= FLOOD_MAX:
-        return False
-    user_requests[user_id].append(now)
-    return True
+    return True  # Limit yo'q
 
 async def delete_old_messages(bot, user_id: int):
     """Foydalanuvchining oldingi bot xabarlarini o'chiradi."""
@@ -341,28 +327,13 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "❓ <b>Yordam</b>\n\n"
         "<b>Online</b> yoki /status — server holati\n"
         "/top — arenacs.uz dan TOP 10 rasm ko'rinishida\n\n"
-        f"⏱ <b>Eslatma:</b> {FLOOD_WINDOW//60} daqiqada {FLOOD_MAX} martadan ko'p "
-        "so'rov yuborsa, eski xabarlar o'chiriladi."
+        "💡 Har safar <b>Online</b> yozilganda oldingi xabar o'chib, yangi chiqadi."
     )
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
-    # Flood tekshirish
-    if not check_flood(user_id):
-        warn = await update.message.reply_html(
-            f"⏳ <b>Iltimos kuting!</b>\n"
-            f"{FLOOD_WINDOW//60} daqiqada {FLOOD_MAX} martadan ko'p so'rov yuborib bo'lmaydi."
-        )
-        await asyncio.sleep(5)
-        try: await warn.delete()
-        except Exception: pass
-        try: await update.message.delete()
-        except Exception: pass
-        return
-
-    # Oldingi xabarlarni o'chirish
     await delete_old_messages(context.bot, user_id)
 
     msg = await update.message.reply_html(f"⏳ <b>So'ralmoqda...</b>")
@@ -406,20 +377,6 @@ async def on_online_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
 
-    # Flood tekshirish
-    if not check_flood(user_id):
-        warn = await update.message.reply_html(
-            f"⏳ <b>Iltimos kuting!</b>\n"
-            f"{FLOOD_WINDOW//60} daqiqada {FLOOD_MAX} martadan ko'p so'rov yuborib bo'lmaydi."
-        )
-        await asyncio.sleep(5)
-        try: await warn.delete()
-        except Exception: pass
-        try: await update.message.delete()
-        except Exception: pass
-        return
-
-    # Oldingi xabarlarni o'chirish
     await delete_old_messages(context.bot, user_id)
 
     msg = await update.message.reply_html(
