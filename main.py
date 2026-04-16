@@ -120,23 +120,25 @@ def build_status_message(result: dict) -> str:
     max_players = info.max_players or 32
     percent = round(player_count / max_players * 100) if max_players else 0
 
+    # Kill (score) bo‘yicha ko‘pdan-kamga
     real_players = sorted(
         [p for p in players if p.name and p.name.strip()],
         key=lambda p: p.score or 0,
         reverse=True
     )
 
+    # tg-emoji ichida matn bo‘lishi shart!
     rank_emojis = {
-        1: '<tg-emoji emoji-id="5280618627794502101"></tg-emoji>',
-        2: '<tg-emoji emoji-id="5350673031905692048"></tg-emoji>',
-        3: '<tg-emoji emoji-id="5341460631998471430"></tg-emoji>',
-        4: '<tg-emoji emoji-id="5341491624482477633"></tg-emoji>',
-        5: '<tg-emoji emoji-id="5341548090417519735"></tg-emoji>',
-        6: '<tg-emoji emoji-id="5343880511062315407"></tg-emoji>',
-        7: '<tg-emoji emoji-id="5341511205238381063"></tg-emoji>',
-        8: '<tg-emoji emoji-id="5341750026894877670"></tg-emoji>',
-        9: '<tg-emoji emoji-id="5281024828621488140"></tg-emoji>',
-        10: '<tg-emoji emoji-id="5280704793428397747"></tg-emoji>',
+        1:  '<tg-emoji emoji-id="5280618627794502101">1</tg-emoji>',
+        2:  '<tg-emoji emoji-id="5350673031905692048">2</tg-emoji>',
+        3:  '<tg-emoji emoji-id="5341460631998471430">3</tg-emoji>',
+        4:  '<tg-emoji emoji-id="5341491624482477633">4</tg-emoji>',
+        5:  '<tg-emoji emoji-id="5341548090417519735">5</tg-emoji>',
+        6:  '<tg-emoji emoji-id="5343880511062315407">6</tg-emoji>',
+        7:  '<tg-emoji emoji-id="5341511205238381063">7</tg-emoji>',
+        8:  '<tg-emoji emoji-id="5341750026894877670">8</tg-emoji>',
+        9:  '<tg-emoji emoji-id="5281024828621488140">9</tg-emoji>',
+        10: '<tg-emoji emoji-id="5280704793428397747">0</tg-emoji>',
     }
 
     lines = [
@@ -157,10 +159,11 @@ def build_status_message(result: dict) -> str:
             lines.append(f"{rank_icon} {name} — {score} фрагов — {time_str}")
     else:
         lines.append("👤 <b>Игроки онлайн:</b>")
-        lines.append("Нет игроков онлайн")
+        lines.append("<i>Нет игроков онлайн</i>")
 
-    lines.append("")
-    lines.append("")
+    # 2 ta shift+enter majburlash
+    lines.append("\u200b")
+    lines.append("\u200b")
     lines.append(f"📋 Всего игроков онлайн: <b>{player_count}</b>")
 
     return "\n".join(lines)
