@@ -24,7 +24,7 @@ from telegram.ext import (
 # ---------------------------------------------
 # SOZLAMALAR
 # ---------------------------------------------
-TOKEN = "8754991264:AAEMfS7pLSBieHnuunCCz5Jl4I9SZylqCic"
+TOKEN = "TOKENINGIZNI_BUYERGA_QOYING"
 CS_HOST = "198.163.207.220"
 CS_PORT = 27015
 SITE_URL = "https://arenacs.uz/stats"
@@ -105,10 +105,10 @@ def query_server():
 def build_status_message(result: dict) -> str:
     if not result["online"]:
         return (
-            "ℹ️ Информация о сервере\n"
+            "ℹ️ <b>Информация о сервере</b>\n"
             f"📝 {SERVER_NAME}\n"
             f"🌐 {CS_HOST}:{CS_PORT}\n\n"
-            "🔴 Сервер оффлайн\n"
+            "🔴 <b>Сервер оффлайн</b>\n"
             "❌ Сервер не отвечает."
         )
 
@@ -126,26 +126,42 @@ def build_status_message(result: dict) -> str:
         reverse=True
     )
 
+    rank_emojis = {
+        1: '<tg-emoji emoji-id="5280618627794502101"></tg-emoji>',
+        2: '<tg-emoji emoji-id="5350673031905692048"></tg-emoji>',
+        3: '<tg-emoji emoji-id="5341460631998471430"></tg-emoji>',
+        4: '<tg-emoji emoji-id="5341491624482477633"></tg-emoji>',
+        5: '<tg-emoji emoji-id="5341548090417519735"></tg-emoji>',
+        6: '<tg-emoji emoji-id="5343880511062315407"></tg-emoji>',
+        7: '<tg-emoji emoji-id="5341511205238381063"></tg-emoji>',
+        8: '<tg-emoji emoji-id="5341750026894877670"></tg-emoji>',
+        9: '<tg-emoji emoji-id="5281024828621488140"></tg-emoji>',
+        10: '<tg-emoji emoji-id="5280704793428397747"></tg-emoji>',
+    }
+
     lines = [
-        "ℹ️ Информация о сервере",
+        "ℹ️ <b>Информация о сервере</b>",
         f"📝 {SERVER_NAME}",
         f"🌐 {CS_HOST}:{CS_PORT}",
-        f"🗺 Карта: {esc(map_name)}",
-        f"👥 Онлайн: {player_count}/{max_players} ({percent}%)",
+        f"🗺 Карта: <b>{esc(map_name)}</b>",
+        f"👥 Онлайн: <b>{player_count}/{max_players}</b> ({percent}%)",
     ]
 
     if real_players:
-        lines.append("👤 Игроки онлайн:")
+        lines.append("👤 <b>Игроки онлайн:</b>")
         for i, p in enumerate(real_players, 1):
             name = esc(p.name.strip())
             score = p.score or 0
             time_str = format_time(p.duration) if p.duration else "0:00"
-            lines.append(f"{i}) {name} — {score} фрагов — {time_str}")
+            rank_icon = rank_emojis.get(i, f"{i})")
+            lines.append(f"{rank_icon} {name} — {score} фрагов — {time_str}")
     else:
-        lines.append("👤 Игроки онлайн:")
+        lines.append("👤 <b>Игроки онлайн:</b>")
         lines.append("Нет игроков онлайн")
 
-    lines.append(f"📋 Всего игроков онлайн: {player_count}")
+    lines.append("")
+    lines.append("")
+    lines.append(f"📋 Всего игроков онлайн: <b>{player_count}</b>")
 
     return "\n".join(lines)
 
@@ -251,7 +267,7 @@ def make_top10_image(players: list) -> bytes:
         draw.text((34, y + 22), str(p["rank"]), font=FONT_BOLD_S, fill=rc, anchor="mm")
 
         nc = rc if p["rank"] <= 3 else (200, 200, 200)
-        name = p["name"][:26] + "…" if len(p["name"]) > 26 else p["name"]
+        name = p["name"][:26] + "..." if len(p["name"]) > 26 else p["name"]
 
         draw.text((68, y + 22), name, font=FONT_NORMAL, fill=nc, anchor="lm")
         draw.text((458, y + 22), f"{p['kills']:,}", font=FONT_MONO, fill=(231, 76, 60), anchor="lm")
@@ -359,7 +375,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     loop = asyncio.get_event_loop()
 
-    if data in ("refresh_status", "back_to_status"):
+    if data == "refresh_status":
         await query.answer("Yangilanmoqda...")
         result = await loop.run_in_executor(None, query_server)
         try:
