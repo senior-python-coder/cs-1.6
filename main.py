@@ -24,7 +24,7 @@ from telegram.ext import (
 # ---------------------------------------------
 # SOZLAMALAR
 # ---------------------------------------------
-TOKEN = "TOKENINGIZNI_BUYERGA_QOYING"
+TOKEN = "8754991264:AAEMfS7pLSBieHnuunCCz5Jl4I9SZylqCic"
 CS_HOST = "198.163.207.220"
 CS_PORT = 27015
 SITE_URL = "https://arenacs.uz/stats"
