@@ -154,7 +154,8 @@ def build_status_text(result: dict) -> str:
         f"📝 {SERVER_NAME}",
         f"🌐 {CS_HOST}:{CS_PORT}",
         f"🗺 Карта: {map_name}",
-        f"👥 Онлайн: {player_count}/{max_players} ({percent}%)\n",
+        f"👥 Онлайн: {player_count}/{max_players} ({percent}%)",
+        "",  # bu 1 ta bo'sh qator (Игроки онлайн ni pastga tushiradi)
         "👤 Игроки онлайн:",
     ]
 
