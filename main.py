@@ -154,7 +154,7 @@ def build_status_text(result: dict) -> str:
         f"📝 {SERVER_NAME}",
         f"🌐 {CS_HOST}:{CS_PORT}",
         f"🗺 Карта: {map_name}",
-        f"👥 Онлайн: {player_count}/{max_players} ({percent}%)",
+        f"👥 Онлайн: {player_count}/{max_players} ({percent}%)\n",
         "👤 Игроки онлайн:",
     ]
 
@@ -168,7 +168,6 @@ def build_status_text(result: dict) -> str:
             lines.append(f"{i}) {name} — {score} фрагов — {time_str}")
 
     # 2 qator pastga
-    lines.append("\u200b")
     lines.append("\u200b")
     lines.append(f"📋 Всего игроков онлайн: {player_count}")
 
