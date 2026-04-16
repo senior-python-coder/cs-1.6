@@ -8,7 +8,6 @@ import os
 import re
 import threading
 from collections import defaultdict
-from html import escape
 
 import a2s
 import requests
@@ -20,7 +19,6 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     InputMediaPhoto,
-    MessageEntity,
 )
 from telegram.ext import (
     Application,
@@ -34,28 +32,11 @@ from telegram.ext import (
 # =========================
 # CONFIG
 # =========================
-TOKEN = "8754991264:AAEMfS7pLSBieHnuunCCz5Jl4I9SZylqCic"  # siz aytgan token
+TOKEN = "8754991264:AAEMfS7pLSBieHnuunCCz5Jl4I9SZylqCic"
 CS_HOST = "198.163.207.220"
 CS_PORT = 27015
 SITE_URL = "https://arenacs.uz/stats"
 SERVER_NAME = "ARENACS.UZ | PUBLIC 18+"
-
-# 1..10 rank custom emoji id
-CUSTOM_EMOJI_IDS = {
-    1: "5280618627794502101",
-    2: "5350673031905692048",
-    3: "5341460631998471430",
-    4: "5341491624482477633",
-    5: "5341548090417519735",
-    6: "5343880511062315407",
-    7: "5341511205238381063",
-    8: "5341750026894877670",
-    9: "5281024828621488140",
-    10: "5280704793428397747",
-}
-
-# custom emoji chiqmasa avtomatik oddiy raqamga tushadi
-USE_CUSTOM_EMOJI = True
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -143,25 +124,15 @@ def status_keyboard():
         InlineKeyboardButton("🏆 TOP 10", url=SITE_URL),
     ]])
 
-# =========================
-# STATUS PAYLOAD
-# =========================
-def build_status_payload(result: dict):
-    """
-    Returns: (text, entities)
-    entities -> custom emoji for rank 1..10 (optional)
-    """
-    lines = []
-    entities = []
-
+def build_status_text(result: dict) -> str:
     if not result.get("online"):
-        lines.append("ℹ️ Информация о сервере")
-        lines.append(f"📝 {SERVER_NAME}")
-        lines.append(f"🌐 {CS_HOST}:{CS_PORT}")
-        lines.append("")
-        lines.append("🔴 Сервер оффлайн")
-        lines.append("❌ Сервер не отвечает.")
-        return "\n".join(lines), entities
+        return (
+            "ℹ️ Информация о сервере\n"
+            f"📝 {SERVER_NAME}\n"
+            f"🌐 {CS_HOST}:{CS_PORT}\n\n"
+            "🔴 Сервер оффлайн\n"
+            "❌ Сервер не отвечает."
+        )
 
     info = result["info"]
     players = result["players"]
@@ -171,19 +142,21 @@ def build_status_payload(result: dict):
     max_players = int(getattr(info, "max_players", 32) or 32)
     percent = round(player_count / max_players * 100) if max_players else 0
 
-    # kill(score) bo'yicha saralash: ko'pdan kamga
+    # Kill (score) bo'yicha: ko'pdan-kamga
     real_players = sorted(
         [p for p in players if getattr(p, "name", None) and str(p.name).strip()],
         key=lambda p: getattr(p, "score", 0) or 0,
         reverse=True
     )
 
-    lines.append("ℹ️ Информация о сервере")
-    lines.append(f"📝 {SERVER_NAME}")
-    lines.append(f"🌐 {CS_HOST}:{CS_PORT}")
-    lines.append(f"🗺 Карта: {map_name}")
-    lines.append(f"👥 Онлайн: {player_count}/{max_players} ({percent}%)")
-    lines.append("👤 Игроки онлайн:")
+    lines = [
+        "ℹ️ Информация о сервере",
+        f"📝 {SERVER_NAME}",
+        f"🌐 {CS_HOST}:{CS_PORT}",
+        f"🗺 Карта: {map_name}",
+        f"👥 Онлайн: {player_count}/{max_players} ({percent}%)",
+        "👤 Игроки онлайн:",
+    ]
 
     if not real_players:
         lines.append("Нет игроков онлайн")
@@ -192,40 +165,14 @@ def build_status_payload(result: dict):
             name = clean(str(p.name).strip())
             score = int(getattr(p, "score", 0) or 0)
             time_str = fmt_time(getattr(p, "duration", 0) or 0)
-
-            # placeholder belgisi keyin custom emoji entity bilan almashtiriladi
-            if USE_CUSTOM_EMOJI and i <= 10:
-                lines.append(f"• {name} — {score} фрагов — {time_str}")
-            else:
-                lines.append(f"{i}) {name} — {score} фрагов — {time_str}")
+            lines.append(f"{i}) {name} — {score} фрагов — {time_str}")
 
     # 2 qator pastga
     lines.append("\u200b")
     lines.append("\u200b")
     lines.append(f"📋 Всего игроков онлайн: {player_count}")
 
-    text = "\n".join(lines)
-
-    # custom emoji entity offsetlarni hisoblash
-    if USE_CUSTOM_EMOJI and real_players:
-        offset = 0
-        player_line_index = 0
-        for line in lines:
-            if line.startswith("• "):
-                player_line_index += 1
-                emoji_id = CUSTOM_EMOJI_IDS.get(player_line_index)
-                if emoji_id:
-                    entities.append(
-                        MessageEntity(
-                            type=MessageEntity.CUSTOM_EMOJI,
-                            offset=offset,  # line boshidagi "•"
-                            length=1,
-                            custom_emoji_id=emoji_id
-                        )
-                    )
-            offset += len(line) + 1  # + '\n'
-
-    return text, entities
+    return "\n".join(lines)
 
 # =========================
 # TOP 10
@@ -332,8 +279,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "CS 1.6 Server Status Bot\n\n"
         f"Server: {CS_HOST}:{CS_PORT}\n\n"
         "Buyruqlar:\n"
-        "/status yoki /ststus\n"
-        "Online / Онлайн / Online botlar\n"
+        "Online / Онлайн / status   ← oddiy yozuv\n"
+        "/status\n"
         "/top\n"
         "/help"
     )
@@ -341,8 +288,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Yordam:\n"
-        "- /status yoki /ststus\n"
-        "- Online / Онлайн / Online botlar\n"
+        "- Online / Онлайн / status (oddiy yozuv)\n"
+        "- /status\n"
         "- /top"
     )
 
@@ -360,17 +307,9 @@ async def send_status(update: Update, context: ContextTypes.DEFAULT_TYPE, reply_
     try:
         loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(None, query_server)
-        text, entities = build_status_payload(result)
-
-        # custom emoji entities xato bersa fallback
-        try:
-            await msg.edit_text(text=text, entities=entities, reply_markup=status_keyboard())
-        except Exception:
-            plain_text = text.replace("• ", "")
-            await msg.edit_text(text=plain_text, reply_markup=status_keyboard())
-
+        text = build_status_text(result)
+        await msg.edit_text(text=text, reply_markup=status_keyboard())
         save_message(user_id, chat_id, msg.message_id)
-
     except Exception as e:
         logger.exception("send_status error")
         await msg.edit_text(f"❌ Xatolik: {e}")
@@ -379,7 +318,11 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_status(update, context)
 
 async def on_online_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_status(update, context, reply_to_message_id=update.message.message_id if update.message else None)
+    await send_status(
+        update,
+        context,
+        reply_to_message_id=update.message.message_id if update.message else None
+    )
 
 async def cmd_top(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("⏳ TOP 10 yuklanmoqda...")
@@ -417,13 +360,8 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if query.data == "refresh_status":
             loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, query_server)
-            text, entities = build_status_payload(result)
-
-            try:
-                await query.edit_message_text(text=text, entities=entities, reply_markup=status_keyboard())
-            except Exception:
-                plain_text = text.replace("• ", "")
-                await query.edit_message_text(text=plain_text, reply_markup=status_keyboard())
+            text = build_status_text(result)
+            await query.edit_message_text(text=text, reply_markup=status_keyboard())
 
         elif query.data == "refresh_top":
             loop = asyncio.get_running_loop()
@@ -443,9 +381,6 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         logger.exception("callback error")
 
-# =========================
-# ERROR HANDLER
-# =========================
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
     logger.exception("Unhandled exception: %s", context.error)
 
@@ -459,18 +394,20 @@ def run_bot():
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
-    app.add_handler(CommandHandler(["status", "ststus"], cmd_status))
+    app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("top", cmd_top))
 
-    # Online / Онлайн / Online botlar / онлайн ботлар
+    # oddiy text komandalar
     app.add_handler(
         MessageHandler(
             filters.TEXT
             & ~filters.COMMAND
-            & filters.Regex(r"(?iu)^\s*(online|онлайн|status|ststus)(\s+.*)?$"),
+            & filters.Regex(r"(?iu)^\s*(online|онлайн|status)(\s+.*)?$"),
             on_online_message
         )
     )
+
+    app.add_handler(CallbackQueryHandler(on_callback))
 
     logger.info("Bot started: %s:%s", CS_HOST, CS_PORT)
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
