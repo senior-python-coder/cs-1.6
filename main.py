@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
-# =============================================
-# CS 1.6 Server Status Bot
-# pip install python-telegram-bot python-a2s Pillow requests beautifulsoup4
-# =============================================
+# -*- coding: utf-8 -*-
 
 import asyncio
 import io
-import re
 import logging
+import re
+import threading
 from collections import defaultdict
 
+import a2s
 import requests
 from bs4 import BeautifulSoup
+from flask import Flask
 from PIL import Image, ImageDraw, ImageFont
-
-import a2s
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -31,16 +29,16 @@ from telegram.ext import (
     filters,
 )
 
-# ---------------------------------------------
+# =============================================
 # SOZLAMALAR
-# ---------------------------------------------
-TOKEN = "TOKENINGIZNI_BUYERGA_QOYING"
+# =============================================
+TOKEN = "8754991264:AAEMfS7pLSBieHnuunCCz5Jl4I9SZylqCic"
 CS_HOST = "198.163.207.220"
 CS_PORT = 27015
 SITE_URL = "https://arenacs.uz/stats"
 SERVER_NAME = "ARENACS.UZ | PUBLIC 18+"
 
-# Siz yuborgan custom_emoji_id lar (1..9,0)
+# 1..9,0 uchun custom emoji id
 CUSTOM_EMOJI_IDS = {
     1: "5280618627794502101",
     2: "5350673031905692048",
@@ -51,7 +49,7 @@ CUSTOM_EMOJI_IDS = {
     7: "5341511205238381063",
     8: "5341750026894877670",
     9: "5281024828621488140",
-    10: "5280704793428397747",  # 0 emojingiz
+    10: "5280704793428397747",
 }
 
 logging.basicConfig(
@@ -60,9 +58,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------
-# ESKI XABARLARNI O'CHIRISH
-# ---------------------------------------------
+# =============================================
+# FLASK (WEB STATUS)
+# =============================================
+web_app = Flask(__name__)
+
+@web_app.get("/")
+def home():
+    return "CS Status Bot is running!", 200
+
+@web_app.get("/health")
+def health():
+    return {"ok": True, "service": "cs-status-bot"}, 200
+
+
+# =============================================
+# XABARLARNI BOSHQARISH
+# =============================================
 user_messages: dict = defaultdict(list)
 
 async def delete_old_messages(bot, user_id: int):
@@ -76,9 +88,10 @@ async def delete_old_messages(bot, user_id: int):
 def save_message(user_id: int, chat_id: int, msg_id: int):
     user_messages[user_id].append((chat_id, msg_id))
 
-# ---------------------------------------------
-# SHRIFTLAR
-# ---------------------------------------------
+
+# =============================================
+# TOP IMAGE FONTLAR
+# =============================================
 try:
     FONT_BOLD = ImageFont.truetype("arialbd.ttf", 24)
     FONT_BOLD_S = ImageFont.truetype("arialbd.ttf", 13)
@@ -88,9 +101,10 @@ try:
 except Exception:
     FONT_BOLD = FONT_BOLD_S = FONT_NORMAL = FONT_SMALL = FONT_MONO = ImageFont.load_default()
 
-# ---------------------------------------------
-# YORDAMCHI FUNKSIYALAR
-# ---------------------------------------------
+
+# =============================================
+# YORDAMCHI
+# =============================================
 def clean(text: str) -> str:
     return (
         str(text)
@@ -109,9 +123,10 @@ def format_time(seconds: float) -> str:
         return f"{h}:{m % 60:02d}:{s % 60:02d}"
     return f"{m}:{s % 60:02d}"
 
-# ---------------------------------------------
-# SERVER SO'ROVI
-# ---------------------------------------------
+
+# =============================================
+# CS SERVER QUERY
+# =============================================
 def query_server():
     try:
         info = a2s.info((CS_HOST, CS_PORT), timeout=5)
@@ -120,16 +135,16 @@ def query_server():
     except Exception as e:
         return {"online": False, "error": str(e)}
 
-# ---------------------------------------------
-# STATUS TEXT + ENTITIES (CUSTOM EMOJI)
-# ---------------------------------------------
+
+# =============================================
+# STATUS TEXT + CUSTOM EMOJI ENTITIES
+# =============================================
 def build_status_payload(result: dict):
     text_parts: list[str] = []
     entities: list[MessageEntity] = []
     cur_len = 0
 
     def push_line(line: str) -> int:
-        """Adds a line, returns the start offset of this line in final text."""
         nonlocal cur_len
         if text_parts:
             text_parts.append("\n")
@@ -156,7 +171,7 @@ def build_status_payload(result: dict):
     max_players = info.max_players or 32
     percent = round(player_count / max_players * 100) if max_players else 0
 
-    # Kill/Score bo‘yicha ko‘pdan-kamga
+    # KILL bo‘yicha kamayish tartibi
     real_players = sorted(
         [p for p in players if p.name and str(p.name).strip()],
         key=lambda p: p.score or 0,
@@ -178,17 +193,14 @@ def build_status_payload(result: dict):
             score = p.score or 0
             time_str = format_time(p.duration)
 
-            # 1..10 custom emoji
             if i <= 10 and i in CUSTOM_EMOJI_IDS:
-                # 1 ta placeholder belgiga custom_emoji entity biriktiramiz
-                placeholder = "•"  # length=1 bo‘lsin
+                placeholder = "•"
                 line = f"{placeholder} {name} — {score} фрагов — {time_str}"
                 line_start = push_line(line)
-
                 entities.append(
                     MessageEntity(
                         type=MessageEntity.CUSTOM_EMOJI,
-                        offset=line_start,   # placeholder line boshida
+                        offset=line_start,
                         length=1,
                         custom_emoji_id=CUSTOM_EMOJI_IDS[i],
                     )
@@ -196,12 +208,13 @@ def build_status_payload(result: dict):
             else:
                 push_line(f"{i}) {name} — {score} фрагов — {time_str}")
 
-    # 2 ta shift+enter (Telegram bo‘sh qatorni “yutmasin”)
+    # 2 ta shift+enter
     push_line("\u200b")
     push_line("\u200b")
     push_line(f"📋 Всего игроков онлайн: {player_count}")
 
     return "".join(text_parts), entities
+
 
 def status_keyboard():
     return InlineKeyboardMarkup([[
@@ -209,9 +222,10 @@ def status_keyboard():
         InlineKeyboardButton("🏆 TOP 10", url=SITE_URL),
     ]])
 
-# ---------------------------------------------
-# ARENACS.UZ TOP 10
-# ---------------------------------------------
+
+# =============================================
+# TOP 10 FETCH
+# =============================================
 def fetch_top10():
     session = requests.Session()
     headers = {
@@ -247,9 +261,13 @@ def fetch_top10():
                     kills = int(re.sub(r"\D", "", cols[2].get_text(strip=True)) or 0)
                     deaths = int(re.sub(r"\D", "", cols[3].get_text(strip=True)) or 0) if len(cols) > 3 else 0
                     kdr = round(kills / deaths, 2) if deaths > 0 else float(kills)
-                    players.append(
-                        {"rank": len(players) + 1, "name": name, "kills": kills, "deaths": deaths, "kdr": kdr}
-                    )
+                    players.append({
+                        "rank": len(players) + 1,
+                        "name": name,
+                        "kills": kills,
+                        "deaths": deaths,
+                        "kdr": kdr
+                    })
                 except Exception:
                     continue
 
@@ -257,12 +275,14 @@ def fetch_top10():
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
-# ---------------------------------------------
-# TOP 10 RASM
-# ---------------------------------------------
+
+# =============================================
+# TOP 10 IMAGE
+# =============================================
 def make_top10_image(players: list) -> bytes:
     W, ROW_H, HDR_H, FTR_H = 780, 50, 88, 36
     H = HDR_H + 28 + ROW_H * len(players) + FTR_H
+
     img = Image.new("RGB", (W, H), (13, 13, 20))
     draw = ImageDraw.Draw(img)
 
@@ -297,21 +317,27 @@ def make_top10_image(players: list) -> bytes:
         draw.text((68, y + 22), name, font=FONT_NORMAL, fill=nc, anchor="lm")
         draw.text((458, y + 22), f"{p['kills']:,}", font=FONT_MONO, fill=(231, 76, 60), anchor="lm")
         draw.text((545, y + 22), f"{p['deaths']:,}", font=FONT_MONO, fill=(52, 152, 219), anchor="lm")
-
         kd_color = (46, 204, 113) if p["kdr"] >= 2 else (243, 156, 18) if p["kdr"] >= 1.5 else (231, 76, 60)
         draw.text((645, y + 22), f"{p['kdr']:.2f}", font=FONT_MONO, fill=kd_color, anchor="lm")
         draw.line([(16, y + ROW_H - 1), (W - 16, y + ROW_H - 1)], fill=(25, 25, 40), width=1)
 
-    draw.text((W // 2, HDR_H + 28 + ROW_H * len(players) + 10), "@cs_status_online_bot", font=FONT_SMALL, fill=(51, 51, 51), anchor="mt")
+    draw.text(
+        (W // 2, HDR_H + 28 + ROW_H * len(players) + 10),
+        "@cs_status_online_bot",
+        font=FONT_SMALL,
+        fill=(51, 51, 51),
+        anchor="mt",
+    )
 
     buf = io.BytesIO()
     img.save(buf, "PNG")
     buf.seek(0)
     return buf.read()
 
-# ---------------------------------------------
+
+# =============================================
 # HANDLERLAR
-# ---------------------------------------------
+# =============================================
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "CS 1.6 Server Status Bot\n\n"
@@ -327,8 +353,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Yordam\n\n"
         "Online yoki /status - server holati\n"
-        "/top - arenacs.uz dan TOP 10 rasm\n\n"
-        "Har safar Online yozilganda oldingi xabar o'chib, yangi chiqadi."
+        "/top - arenacs.uz dan TOP 10 rasm"
     )
 
 async def send_status(update: Update, context: ContextTypes.DEFAULT_TYPE, reply_to_message_id=None):
@@ -339,12 +364,11 @@ async def send_status(update: Update, context: ContextTypes.DEFAULT_TYPE, reply_
 
     msg = await update.message.reply_text(
         "⏳ So'ralmoqda...",
-        reply_to_message_id=reply_to_message_id,
+        reply_to_message_id=reply_to_message_id
     )
 
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, query_server)
-
     text, entities = build_status_payload(result)
 
     await msg.edit_text(
@@ -352,7 +376,6 @@ async def send_status(update: Update, context: ContextTypes.DEFAULT_TYPE, reply_
         entities=entities,
         reply_markup=status_keyboard(),
     )
-
     save_message(user_id, chat_id, msg.message_id)
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -422,10 +445,17 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
 
-# ---------------------------------------------
-# MAIN
-# ---------------------------------------------
-def main():
+
+# =============================================
+# STARTERS
+# =============================================
+def run_flask():
+    # Railway/Render uchun PORT env bo'lsa ishlatish mumkin:
+    # import os; port = int(os.getenv("PORT", "8080"))
+    # web_app.run(host="0.0.0.0", port=port)
+    web_app.run(host="0.0.0.0", port=8080)
+
+def run_bot():
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
@@ -437,8 +467,9 @@ def main():
 
     print("🎮 CS 1.6 Status Bot ishga tushdi!")
     print(f"📡 Server: {CS_HOST}:{CS_PORT}")
-
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
-    main()
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    run_bot()
