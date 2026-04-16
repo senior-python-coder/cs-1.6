@@ -279,7 +279,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "CS 1.6 Server Status Bot\n\n"
         f"Server: {CS_HOST}:{CS_PORT}\n\n"
         "Buyruqlar:\n"
-        "Online / Онлайн / status   ← oddiy yozuv\n"
+        "Online / Онлайн\n"
         "/status\n"
         "/top\n"
         "/help"
@@ -288,7 +288,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Yordam:\n"
-        "- Online / Онлайн / status (oddiy yozuv)\n"
+        "- Online / Онлайн\n"
         "- /status\n"
         "- /top"
     )
