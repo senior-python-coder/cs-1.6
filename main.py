@@ -273,7 +273,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "CS 1.6 Server Status Bot\n\n"
         f"Server: {CS_HOST}:{CS_PORT}\n\n"
         "Buyruqlar:\n"
-        "Online / Online botlar / onlayn / онлайн / олине\n"
+        "Online / онлайн\n"
         "status / статус\n"
         "/status\n"
         "/top\n"
