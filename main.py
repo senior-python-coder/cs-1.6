@@ -14,12 +14,7 @@ import requests
 from bs4 import BeautifulSoup
 from flask import Flask
 from PIL import Image, ImageDraw, ImageFont
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    InputMediaPhoto,
-)
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -45,7 +40,7 @@ logging.basicConfig(
 logger = logging.getLogger("cs_status_bot")
 
 # =========================
-# FLASK APP
+# FLASK
 # =========================
 web_app = Flask(__name__)
 
@@ -62,9 +57,9 @@ def run_flask():
     web_app.run(host="0.0.0.0", port=port)
 
 # =========================
-# MESSAGE CLEANUP
+# CLEANUP
 # =========================
-user_messages = defaultdict(list)  # {user_id: [(chat_id, msg_id)]}
+user_messages = defaultdict(list)
 
 async def delete_old_messages(bot, user_id: int):
     for chat_id, msg_id in user_messages[user_id]:
@@ -78,7 +73,7 @@ def save_message(user_id: int, chat_id: int, msg_id: int):
     user_messages[user_id].append((chat_id, msg_id))
 
 # =========================
-# IMAGE FONTS
+# FONTS
 # =========================
 try:
     FONT_BOLD = ImageFont.truetype("arialbd.ttf", 24)
@@ -142,7 +137,6 @@ def build_status_text(result: dict) -> str:
     max_players = int(getattr(info, "max_players", 32) or 32)
     percent = round(player_count / max_players * 100) if max_players else 0
 
-    # Kill (score) bo'yicha: ko'pdan-kamga
     real_players = sorted(
         [p for p in players if getattr(p, "name", None) and str(p.name).strip()],
         key=lambda p: getattr(p, "score", 0) or 0,
@@ -155,7 +149,7 @@ def build_status_text(result: dict) -> str:
         f"🌐 {CS_HOST}:{CS_PORT}",
         f"🗺 Карта: {map_name}",
         f"👥 Онлайн: {player_count}/{max_players} ({percent}%)",
-        "",  # bu 1 ta bo'sh qator (Игроки онлайн ni pastga tushiradi)
+        "",  # Игроки онлайн ni 1 qator pastga
         "👤 Игроки онлайн:",
     ]
 
@@ -166,16 +160,15 @@ def build_status_text(result: dict) -> str:
             name = clean(str(p.name).strip())
             score = int(getattr(p, "score", 0) or 0)
             time_str = fmt_time(getattr(p, "duration", 0) or 0)
-            lines.append(f"{i}) {name} — {score} фрагов — {time_str}")
+            lines.append(f"{i}. {name} — {score} фрагов — {time_str}")
 
-    # 2 qator pastga
-    lines.append("\u200b")
+    lines.append("\u200b")  # 📋 ni 1 qator tepaga
     lines.append(f"📋 Всего игроков онлайн: {player_count}")
 
     return "\n".join(lines)
 
 # =========================
-# TOP 10
+# TOP10
 # =========================
 def fetch_top10():
     session = requests.Session()
@@ -192,6 +185,7 @@ def fetch_top10():
             headers=headers,
             timeout=10
         )
+
         soup = BeautifulSoup(resp.text, "html.parser")
         rows = soup.select("tr.player_row, .top_row, tr[class*='top'], .stats_row")
 
@@ -279,7 +273,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "CS 1.6 Server Status Bot\n\n"
         f"Server: {CS_HOST}:{CS_PORT}\n\n"
         "Buyruqlar:\n"
-        "Online / Онлайн\n"
+        "Online / Online botlar / onlayn / онлайн / олине\n"
+        "status / статус\n"
         "/status\n"
         "/top\n"
         "/help"
@@ -288,7 +283,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Yordam:\n"
-        "- Online / Онлайн\n"
+        "- Online / Online botlar / onlayn / онлайн / олине\n"
+        "- status / статус\n"
         "- /status\n"
         "- /top"
     )
@@ -301,7 +297,6 @@ async def send_status(update: Update, context: ContextTypes.DEFAULT_TYPE, reply_
     chat_id = update.effective_chat.id
 
     await delete_old_messages(context.bot, user_id)
-
     msg = await update.message.reply_text("⏳ So'ralmoqda...", reply_to_message_id=reply_to_message_id)
 
     try:
@@ -317,12 +312,20 @@ async def send_status(update: Update, context: ContextTypes.DEFAULT_TYPE, reply_
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_status(update, context)
 
-async def on_online_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_status(
-        update,
-        context,
-        reply_to_message_id=update.message.message_id if update.message else None
+async def on_text_trigger(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.text:
+        return
+
+    txt = update.message.text.strip().lower()
+
+    triggers = (
+        "online", "online botlar", "onlayn",
+        "онлайн", "олине", "онлине", "онлаин",
+        "status", "статус", "ststus", "стстус",
     )
+
+    if txt == "online" or txt.startswith(triggers):
+        await send_status(update, context, reply_to_message_id=update.message.message_id)
 
 async def cmd_top(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("⏳ TOP 10 yuklanmoqda...")
@@ -389,7 +392,6 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 def run_bot():
     app = Application.builder().token(TOKEN).build()
-
     app.add_error_handler(on_error)
 
     app.add_handler(CommandHandler("start", cmd_start))
@@ -397,16 +399,8 @@ def run_bot():
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("top", cmd_top))
 
-    # oddiy text komandalar
-    app.add_handler(
-        MessageHandler(
-            filters.TEXT
-            & ~filters.COMMAND
-            & filters.Regex(r"(?iu)^\s*(online|онлайн|status)(\s+.*)?$"),
-            on_online_message
-        )
-    )
-
+    # barcha oddiy text triggerlar
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text_trigger))
     app.add_handler(CallbackQueryHandler(on_callback))
 
     logger.info("Bot started: %s:%s", CS_HOST, CS_PORT)
