@@ -283,7 +283,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Yordam:\n"
-        "- Online / Online botlar / onlayn / онлайн / олине\n"
+        "- Online / онлайн\n"
         "- status / статус\n"
         "- /status\n"
         "- /top"
