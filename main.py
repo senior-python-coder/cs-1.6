@@ -42,19 +42,19 @@ logger = logging.getLogger("cs_status_bot")
 # =========================
 # FLASK
 # =========================
-web_app = Flask(__name__)
+app = Flask(__name__)
 
-@web_app.get("/")
+@app.get("/")
 def home():
     return "CS Status Bot is running", 200
 
-@web_app.get("/health")
+@app.get("/health")
 def health():
     return {"ok": True}, 200
 
 def run_flask():
     port = int(os.getenv("PORT", "8080"))
-    web_app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)
 
 # =========================
 # CLEANUP
